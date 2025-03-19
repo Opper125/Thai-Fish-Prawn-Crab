@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Control</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #2e2e4f, #4b4b7b);
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #server-container {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        button, input {
+            padding: 10px;
+            margin: 5px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(0, 255, 255, 0.3);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover, input:hover {
+            background: rgba(0, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+        #server-players, #current-round {
+            font-size: 16px;
+            margin: 10px 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 10px;
+            text-shadow: 0 0 5px #0ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="server-container">
+        <h2 style="text-shadow: 0 0 10px #0ff;">Server Control</h2>
+        <div id="server-players">အွန်လိုင်း ကစားသူ: 0</div>
+        <div id="current-round">လက်ရှိပွဲစဉ်: 0</div>
+        <input id="deposit-user-id" placeholder="User ID">
+        <input id="deposit-amount" type="number" placeholder="Amount">
+        <button onclick="deposit()">Deposit</button>
+        <input id="withdraw-user-id" placeholder="User ID">
+        <input id="withdraw-amount" type="number" placeholder="Amount">
+        <button onclick="withdraw()">Withdraw</button>
+    </div>
+
+    <script>
+        let currentRound = 0;
+        let playersOnline = 0;
+
+        async function fetchServerData() {
+            try {
+                const response = await fetch('/.netlify/functions/data', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getGameData' })
+                });
+                const data = await response.json();
+                currentRound = data.round || 0;
+                playersOnline = data.playersOnline || 0;
+                document.getElementById('current-round').textContent = `လက်ရှိပွဲစဉ်: ${currentRound}`;
+                document.getElementById('server-players').textContent = `အွန်လိုင်း ကစားသူ: ${playersOnline}`;
+            } catch (error) {
+                console.error('Fetch Error:', error);
+            }
+        }
+
+        async function deposit() {
+            const userId = document.getElementById('deposit-user-id').value;
+            const amount = parseInt(document.getElementById('deposit-amount').value);
+            if (!userId || !amount) return alert('User ID နှင့် Amount ထည့်ပါ');
+            await fetch('/.netlify/functions/data', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'deposit', userId, amount })
+            });
+            document.getElementById('deposit-user-id').value = '';
+            document.getElementById('deposit-amount').value = '';
+            fetchServerData();
+        }
+
+        async function withdraw() {
+            const userId = document.getElementById('withdraw-user-id').value;
+            const amount = parseInt(document.getElementById('withdraw-amount').value);
+            if (!userId || !amount) return alert('User ID နှင့် Amount ထည့်ပါ');
+            await fetch('/.netlify/functions/data', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'withdraw', userId, amount })
+            });
+            document.getElementById('withdraw-user-id').value = '';
+            document.getElementById('withdraw-amount').value = '';
+            fetchServerData();
+        }
+
+        window.onload = () => fetchServerData();
+    </script>
+</body>
+</html>
