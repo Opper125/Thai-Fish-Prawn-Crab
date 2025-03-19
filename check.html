@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thai Fish Prawn Crab - Check</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #3b3b5b);
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #check-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            height: 100%;
+            max-height: 100vh;
+            overflow-y: auto;
+        }
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 15px 0;
+            position: relative;
+            background: #a00;
+            padding: 8px;
+            border-radius: 10px;
+        }
+        .animal-box {
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        .animal-box.winner {
+            background: rgba(0, 255, 0, 0.3);
+            animation: winPulse 1.5s infinite;
+        }
+        @keyframes winPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animal-box img {
+            width: 70%;
+        }
+        .bet-amount {
+            position: absolute;
+            bottom: 5px;
+            font-size: 12px;
+            color: #0ff;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 5px;
+            border-radius: 5px;
+        }
+        .total-bet-amount {
+            position: absolute;
+            top: 5px;
+            font-size: 10px;
+            color: #ff0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+        #timer, #player-online, #current-round {
+            font-size: 16px;
+            margin: 8px 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 10px;
+            text-shadow: 0 0 5px #0ff;
+        }
+        #cup {
+            width: 120px;
+            height: 120px;
+            margin: 15px auto;
+            position: relative;
+        }
+        #cup img {
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+        #cup.shaking {
+            animation: shake 1s ease-in-out;
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+            100% { transform: translateX(0); }
+        }
+        #history {
+            display: flex;
+            overflow-x: auto;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            margin: 10px 0;
+        }
+        .history-item {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px;
+            border-radius: 10px;
+        }
+        .history-item img {
+            width: 30px;
+            margin: 0 2px;
+        }
+        .result-dice {
+            position: absolute;
+            width: 35px;
+            height: 35px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            z-index: 1;
+        }
+        .result-dice img {
+            width: 80%;
+        }
+        @media (max-width: 360px) {
+            .game-grid { gap: 4px; }
+            .animal-box { width: 80px; height: 80px; }
+            #cup { width: 100px; height: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="check-container">
+        <h2 style="font-size: 20px; margin: 5px 0; text-shadow: 0 0 10px #0ff;">
+            <img src="https://via.placeholder.com/30x30.png?text=🎲" alt="Logo" style="vertical-align: middle;"> Thai Fish Prawn Crab - Check
+        </h2>
+        <div id="timer">အချိန်: 15 စက္ကန့်</div>
+        <div id="current-round">လက်ရှိပွဲစဉ်: 0</div>
+        <div id="player-online">အွန်လိုင်း ကစားသူ: 0</div>
+        <div class="game-grid" id="game-grid"></div>
+        <div id="cup">
+            <img src="https://raw.githubusercontent.com/Opper125/Thai-Fish-Prawn-Crab/main/images/cup.png" id="cup-img">
+        </div>
+        <div id="history"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/gsap.min.js"></script>
+    <script>
+        let timer = 15;
+        let playersOnline = 0;
+        let currentRound = 0;
+        let winningAnimals = [];
+        let history = [];
+        let totalBetsPerType = {
+            crab: 0,
+            fish: 0,
+            gourd: 0,
+            rooster: 0,
+            tiger: 0,
+            prawn: 0
+        };
+
+        const animals = [
+            { name: 'crab', image_url: 'https://raw.githubusercontent.com/Opper125/Thai-Fish-Prawn-Crab/main/images/crab.png', label: 'ဂဏန်း' },
+            { name: 'fish', image_url: 'https://raw.githubusercontent.com/Opper125/Thai-Fish-Prawn-Crab/main/images/fish.png', label: 'ငါး' },
+            { name: 'gourd', image_url: 'https://raw.githubusercontent.com/Opper125/Thai-Fish-Prawn-Crab/main/images/gourd.png', label: 'ဖရုံသီး' },
+            { name: 'tiger', image_url: 'https://raw.githubusercontent.com/Opper125/Thai-Fish-Prawn-Crab/main/images/tiger.png', label: 'ကျား' },
+            { name: 'rooster', image_url: 'https://raw.githubusercontent.com/Opper125/Thai-Fish-Prawn-Crab/main/images/rooster.png', label: 'ကြက်' },
+            { name: 'prawn', image_url: 'https://raw.githubusercontent.com/Opper125/Thai-Fish-Prawn-Crab/main/images/prawn.png', label: 'ပုစွန်' }
+        ];
+
+        async function initCheck() {
+            renderAnimals();
+            setInterval(updateCheckStatus, 1000);
+        }
+
+        async function updateCheckStatus() {
+            try {
+                const response = await fetch('/.netlify/functions/data', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getGameData' })
+                });
+                const data = await response.json();
+                currentRound = data.round || 0;
+                winningAnimals = data.winners || [];
+                playersOnline = data.playersOnline || 0;
+                totalBetsPerType = data.totalBetsPerType || totalBetsPerType;
+                timer = data.timer || 15;
+
+                document.getElementById('current-round').textContent = `လက်ရှိပွဲစဉ်: ${currentRound}`;
+                document.getElementById('player-online').textContent = `အွန်လိုင်း ကစားသမား: ${playersOnline}`;
+                document.getElementById('timer').textContent = `အချိန်: ${timer} စက္ကန့်`;
+
+                renderAnimals();
+
+                if (timer <= 0) {
+                    const cup = document.getElementById('cup-img');
+                    cup.parentElement.classList.add('shaking');
+                    setTimeout(() => {
+                        cup.style.opacity = 0;
+                        winningAnimals.forEach((animal, index) => {
+                            const dice = document.createElement('div');
+                            dice.className = 'result-dice';
+                            dice.style.left = `${30 + index * 40}px`;
+                            const img = document.createElement('img');
+                            img.src = animals.find(a => a.name === animal).image_url;
+                            dice.appendChild(img);
+                            document.getElementById('cup').appendChild(dice);
+                            gsap.fromTo(dice, 
+                                { y: 50, opacity: 0, scale: 0 }, 
+                                { 
+                                    y: 0, 
+                                    opacity: 1, 
+                                    scale: 1, 
+                                    duration: 1, 
+                                    delay: index * 0.3, 
+                                    ease: "back.out(1.7)", 
+                                    onComplete: () => setTimeout(() => dice.remove(), 2000) 
+                                }
+                            );
+                        });
+
+                        document.querySelectorAll('.animal-box').forEach(box => {
+                            box.classList.remove('winner');
+                            if (winningAnimals.includes(box.dataset.animal)) {
+                                box.classList.add('winner');
+                            }
+                        });
+
+                        const historyItem = document.createElement('div');
+                        historyItem.className = 'history-item';
+                        winningAnimals.forEach(w => {
+                            const img = document.createElement('img');
+                            img.src = animals.find(a => a.name === w).image_url;
+                            historyItem.appendChild(img);
+                        });
+                        history.unshift(historyItem);
+                        if (history.length > 8) history.pop();
+                        document.getElementById('history').innerHTML = '';
+                        history.forEach((h, i) => {
+                            document.getElementById('history').appendChild(h);
+                            gsap.from(h, { duration: 0.5, x: 50, opacity: 0, delay: i * 0.1, ease: "power2.out" });
+                        });
+
+                        setTimeout(() => {
+                            document.querySelectorAll('.animal-box').forEach(box => box.classList.remove('winner'));
+                            gsap.to(cup, { opacity: 1, duration: 0.5 });
+                        }, 2000);
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Update Check Error:', error);
+            }
+        }
+
+        function renderAnimals() {
+            const grid = document.getElementById('game-grid');
+            grid.innerHTML = '';
+            animals.forEach((animal, index) => {
+                const box = document.createElement('div');
+                box.className = 'animal-box';
+                box.dataset.animal = animal.name;
+                const img = document.createElement('img');
+                img.src = animal.image_url;
+                const betSpan = document.createElement('span');
+                betSpan.className = 'bet-amount';
+                betSpan.id = `bet-${animal.name}`;
+                betSpan.textContent = totalBetsPerType[animal.name] || 0;
+                box.appendChild(img);
+                box.appendChild(betSpan);
+                grid.appendChild(box);
+            });
+        }
+
+        window.onload = () => initCheck();
+    </script>
+</body>
+</html>
