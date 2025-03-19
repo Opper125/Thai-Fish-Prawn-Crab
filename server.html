@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Control</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #2e2e4f, #4b4b7b);
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #server-container {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        button, input {
+            padding: 10px;
+            margin: 5px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(0, 255, 255, 0.3);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover, input:hover {
+            background: rgba(0, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+        #server-players, #current-round, #user-info {
+            font-size: 16px;
+            margin: 10px 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 10px;
+            text-shadow: 0 0 5px #0ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="server-container">
+        <h2 style="text-shadow: 0 0 10px #0ff;">Server Control</h2>
+        <div id="server-players">အွန်လိုင်း ကစားသမား: 0</div>
+        <div id="current-round">လက်ရှိပွဲစဉ်: 0</div>
+        <div id="user-info">User Info: N/A</div>
+        <input id="user-id" placeholder="User ID">
+        <button onclick="checkUserInfo()">User Info စစ်ရန်</button>
+        <input id="deposit-user-id" placeholder="User ID">
+        <input id="deposit-amount" type="number" placeholder="Amount">
+        <button onclick="deposit()">Deposit</button>
+        <input id="withdraw-user-id" placeholder="User ID">
+        <input id="withdraw-amount" type="number" placeholder="Amount">
+        <button onclick="withdraw()">Withdraw</button>
+        <button id="unlock-btn" style="display: none;" onclick="unlockUser()">Unlock User</button>
+    </div>
+
+    <script>
+        let currentRound = 0;
+        let playersOnline = 0;
+
+        async function fetchServerData() {
+            try {
+                const response = await fetch('/.netlify/functions/data', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getGameData' })
+                });
+                const data = await response.json();
+                currentRound = data.round || 0;
+                playersOnline = data.playersOnline || 0;
+                document.getElementById('current-round').textContent = `လက်ရှိပွဲစဉ်: ${currentRound}`;
+                document.getElementById('server-players').textContent = `အွန်လိုင်း ကစားသမား: ${playersOnline}`;
+            } catch (error) {
+                console.error('Fetch Error:', error);
+            }
+        }
+
+        async function checkUserInfo() {
+            const userId = document.getElementById('user-id').value;
+            if (!userId) return alert('User ID ထည့်ပါ');
+            const response = await fetch('/.netlify/functions/data', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getGameData', userId })
+            });
+            const data = await response.json();
+            const balance = data.balances[userId] || 0;
+            const locked = data.lockedUsers.includes(userId);
+            document.getElementById('user-info').textContent = `User ID: ${userId}, Balance: ${balance} MMK, Locked: ${locked}`;
+            document.getElementById('unlock-btn').style.display = locked ? 'block' : 'none';
+        }
+
+        async function deposit() {
+            const userId = document.getElementById('deposit-user-id').value;
+            const amount = parseInt(document.getElementById('deposit-amount').value);
+            if (!userId || !amount) return alert('User ID နှင့် Amount ထည့်ပါ');
+            await fetch('/.netlify/functions/data', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'deposit', userId, amount })
+            });
+            document.getElementById('deposit-user-id').value = '';
+            document.getElementById('deposit-amount').value = '';
+            checkUserInfo();
+            fetchServerData();
+        }
+
+        async function withdraw() {
+            const userId = document.getElementById('withdraw-user-id').value;
+            const amount = parseInt(document.getElementById('withdraw-amount').value);
+            if (!userId || !amount) return alert('User ID နှင့် Amount ထည့်ပါ');
+            const response = await fetch('/.netlify/functions/data', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getGameData', userId })
+            });
+            const data = await response.json();
+            const balance = data.balances[userId] || 0;
+            if (balance < amount) {
+                showNotification(`User ${userId} မှ Balance (${balance} MMK) မလုံလောက်ပါ။`, 'error');
+                return;
+            }
+            await fetch('/.netlify/functions/data', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'withdraw', userId, amount })
+            });
+            document.getElementById('withdraw-user-id').value = '';
+            document.getElementById('withdraw-amount').value = '';
+            checkUserInfo();
+            fetchServerData();
+            showNotification(`User ${userId} မှ ${amount} MMK ထုတ်ယူပြီး။`, 'success');
+        }
+
+        async function unlockUser() {
+            const userId = document.getElementById('user-id').value;
+            if (!userId) return alert('User ID ထည့်ပါ');
+            await fetch('/.netlify/functions/data', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'unlockUser', userId })
+            });
+            checkUserInfo();
+            showNotification(`User ${userId} ကို ဖွင့်ပေးပြီး။`, 'success');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.left = '50%';
+            notification.style.transform = 'translateX(-50%)';
+            notification.style.background = type === 'error' ? 'rgba(255, 0, 0, 0.9)' : 'rgba(0, 255, 0, 0.9)';
+            notification.style.color = '#fff';
+            notification.style.padding = '8px 15px';
+            notification.style.borderRadius = '10px';
+            notification.style.boxShadow = type === 'error' ? '0 0 10px #f00' : '0 0 10px #0f0';
+            notification.style.zIndex = '1000';
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        setInterval(fetchServerData, 1000);
+        window.onload = () => fetchServerData();
+    </script>
+</body>
+</html>
